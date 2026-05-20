@@ -112,6 +112,29 @@ const STATUS_NEED_ACTION = new Set([
   'đã hủy',
 ]);
 
+function toShippingStatusCode(status: string): string {
+  const s = status.toLowerCase();
+  if (s.includes('đã giao')) return 'delivered';
+  if (s.includes('đang vận chuyển')) return 'delivering';
+  if (s.includes('lấy hàng không thành công')) return 'pickup_failed';
+  if (s.includes('đang trả')) return 'returning';
+  if (s.includes('đã trả')) return 'returned';
+  if (s.includes('hủy')) return 'cancelled';
+  return 'pending_pickup';
+}
+
+function inferCodStatus(shippingStatus: string, codAmount: number): string {
+  const ship = toShippingStatusCode(shippingStatus);
+  if (codAmount <= 0) return 'no_cod';
+  if (ship === 'delivered') return 'pending_reconcile';
+  if (['cancelled', 'returned', 'pickup_failed'].includes(ship)) return 'no_cod';
+  return 'pending_reconcile';
+}
+
+function makeCombinedStatus(shippingStatus: string, codStatus: string): string {
+  return `${toShippingStatusCode(shippingStatus)}-${codStatus}`;
+}
+
 // ============================================================
 // Helpers
 // ============================================================
@@ -308,6 +331,10 @@ export async function importSpxBuffer(
     result.statusBreakdown[shippingStatus] = (result.statusBreakdown[shippingStatus] || 0) + 1;
     if (needAction) result.needActionCount++;
 
+    const codStatus = inferCodStatus(shippingStatus, codAmount);
+    const combinedStatus = makeCombinedStatus(shippingStatus, codStatus);
+    const nowIso = new Date().toISOString();
+
     payloads.push({
       shop_id: shopId,
       import_batch_id: batchId,
@@ -319,6 +346,8 @@ export async function importSpxBuffer(
       pickup_time: parseDate(get(row, 'pickup_time')),
       delivered_time: parseDate(get(row, 'delivered_time')),
       shipping_status: shippingStatus || null,
+      cod_status: codStatus,
+      combined_status: combinedStatus,
       customer_name: String(get(row, 'customer_name') ?? '').trim() || null,
       customer_phone: String(get(row, 'customer_phone') ?? '').trim() || null,
       receiver_province: String(get(row, 'receiver_province') ?? '').trim() || null,
@@ -348,8 +377,20 @@ export async function importSpxBuffer(
       buyer_reject_collect_fee: parseBool(get(row, 'buyer_reject_collect_fee')),
       buyer_reject_fee_amount: parseAmount(get(row, 'buyer_reject_fee_amount')),
       need_action: needAction,
+      notes: null,
+      tags: [],
+      history: [
+        {
+          timestamp: nowIso,
+          action: existingSet.has(trackingCode) ? 're-import-update' : 'import-create',
+          field: 'shipping_status',
+          old_value: null,
+          new_value: shippingStatus || null,
+          updated_by: 'import-system',
+        }
+      ],
       payment_status: 'Chưa thu',
-      last_imported_at: new Date().toISOString(),
+      last_imported_at: nowIso,
     });
   }
 

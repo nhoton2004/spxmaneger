@@ -9,6 +9,8 @@ import {
   Loader2, AlertTriangle, RefreshCw, TrendingUp, Package,
 } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
+import * as XLSX from 'xlsx';
+import { orderService } from '@/src/services/orderService';
 
 interface ImportResult {
   success?: boolean;
@@ -59,15 +61,46 @@ export default function ImportPage() {
   const handleImport = async () => {
     if (!file || !selectedShopId) { alert('Vui lòng chọn shop và file.'); return; }
     setLoading(true); setResult(null);
-    const fd = new FormData();
-    fd.append('file', file);
-    fd.append('shop_id', selectedShopId);
     try {
-      const res = await fetch('/api/import', { method: 'POST', body: fd });
-      const data = await res.json();
-      setResult(data);
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { header: 1, defval: '' }) as any[];
+      const headerRow = rows[0] || [];
+      const lower = headerRow.map((x: any) => String(x || '').toLowerCase().trim());
+      const findCol = (...names: string[]) => lower.findIndex((v: string) => names.some(n => v.includes(n)));
+      const trackingIdx = findCol('tracking', 'mã vận đơn');
+      const orderCodeIdx = findCol('order code', 'mã đơn', 'customer reference');
+      const customerIdx = findCol('customer', 'tên khách', 'receiver name');
+      const codIdx = findCol('cod');
+      const statusIdx = findCol('status', 'trạng thái');
+
+      const items = rows.slice(1).map((r: any[]) => ({
+        trackingCode: String(r[trackingIdx] || '').trim(),
+        orderCode: String(r[orderCodeIdx] || '').trim(),
+        customerName: String(r[customerIdx] || '').trim(),
+        codAmount: Number(String(r[codIdx] || 0).replace(/[^\\d]/g, '')) || 0,
+        status: String(r[statusIdx] || 'Chờ lấy hàng').trim(),
+        shopId: selectedShopId,
+      })).filter((x: any) => x.trackingCode || x.orderCode);
+
+      const summary = orderService.bulkImport(items, selectedShopId);
+      setResult({
+        success: true,
+        shop: selectedShopName,
+        total: summary.total,
+        inserted: summary.inserted,
+        updated: summary.updated,
+        errors: 0,
+        errorDetails: [],
+        totalRows: summary.total,
+        mappedRows: summary.total,
+        savedRows: summary.inserted,
+        dbCountAfterImport: orderService.list().length,
+        sampleSavedOrders: orderService.list().slice(0, 5),
+      });
     } catch (e: unknown) {
-      setResult({ error: 'Lỗi kết nối server: ' + (e as Error).message, total: 0, inserted: 0, updated: 0, errors: 1, errorDetails: [] });
+      setResult({ error: 'Lỗi import local: ' + (e as Error).message, total: 0, inserted: 0, updated: 0, errors: 1, errorDetails: [] });
     } finally { setLoading(false); }
   };
 

@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { Search, Filter, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useShop } from '@/context/ShopContext';
+import { orderService } from '@/src/services/orderService';
 
 interface Order {
   id: string;
@@ -58,19 +59,36 @@ export default function OrdersPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const p = new URLSearchParams({ page: String(page) });
-    if (search) p.append('search', search);
-    if (shopFilter) p.append('shop_id', shopFilter);
-    if (statusFilter) p.append('status', statusFilter);
-    p.append('t', String(Date.now()));
-
     try {
-      const res = await fetch(`/api/orders?${p}`);
-      const data = await res.json();
-      setOrders(Array.isArray(data.data) ? data.data : []);
-      setTotal(data.count || 0);
-    } catch { setOrders([]); }
-    finally { setLoading(false); }
+       const result = orderService.query({
+         page,
+         limit: LIMIT,
+         search,
+         shopId: shopFilter || undefined,
+         status: statusFilter || undefined,
+         from: undefined,
+         to: undefined,
+       });
+      const mapped = (result.data || []).map((r: any) => ({
+        id: r.id,
+        tracking_code: r.trackingCode,
+        customer_reference_no: r.orderCode,
+        shop_id: r.shopId,
+        order_date: r.createdAt,
+        customer_name: r.customerName,
+        customer_phone: null,
+        cod_amount: r.codAmount,
+        actual_shipping_fee: 0,
+        shipping_status: r.status,
+        delivery_failed_reason: null,
+        need_action: !!r.needAction,
+        payment_status: 'Chưa thu',
+      }));
+      setOrders(mapped as Order[]);
+      setTotal(result.total || 0);
+    } catch {
+      setOrders([]);
+    } finally { setLoading(false); }
   }, [page, search, shopFilter, statusFilter]);
 
   useEffect(() => { load(); }, [load]);

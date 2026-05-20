@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getSupabase } from '@/lib/supabase';
+import { shopService } from '@/src/services/shopService';
 import { Plus, Edit2, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 
@@ -21,22 +21,12 @@ export default function AdminShopsPage() {
   const [editingShop, setEditingShop] = useState<Shop | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({ name: '', code: '' });
-  const supabase = getSupabase();
 
   const fetchShops = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('shops')
-        .select('*')
-        .order('createdAt', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching shops:', error);
-        return;
-      }
-
-      setShops(data || []);
+      const data = shopService.list();
+      setShops(data as Shop[]);
     } catch (err) {
       console.error('Error fetching shops:', err);
     } finally {
@@ -53,30 +43,32 @@ export default function AdminShopsPage() {
     if (!formData.name || !formData.code) return;
 
     try {
-      const newShop = {
-        name: formData.name,
-        code: formData.code,
-        ownerId: '',
-        assignedUsers: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      const { data, error } = await supabase
-        .from('shops')
-        .insert([newShop])
-        .select();
-
-      if (error) {
-        console.error('Error adding shop:', error);
-        return;
+      const isEditing = !!editingShop;
+      
+      if (isEditing) {
+        const updated = shopService.update(editingShop.id, {
+          name: formData.name,
+          code: formData.code,
+        });
+        if (!updated) {
+          alert('Lỗi khi sửa shop');
+          return;
+        }
+        setShops(shops.map(s => s.id === editingShop.id ? { ...s, name: formData.name, code: formData.code } : s));
+      } else {
+        const created = shopService.create({
+          name: formData.name,
+          code: formData.code,
+          platform: 'spx',
+        }) as unknown as Shop;
+        setShops([created, ...shops]);
       }
-
-      setShops([...(data || []), ...shops]);
+      
       setShowModal(false);
       setFormData({ name: '', code: '' });
+      setEditingShop(null);
     } catch (err) {
-      console.error('Error adding shop:', err);
+      console.error('Error adding/updating shop:', err);
     }
   };
 
@@ -84,16 +76,7 @@ export default function AdminShopsPage() {
     if (!confirm('Bạn chắc chắn muốn xóa shop này?')) return;
 
     try {
-      const { error } = await supabase
-        .from('shops')
-        .delete()
-        .eq('id', id);
-
-      if (error) {
-        console.error('Error deleting shop:', error);
-        return;
-      }
-
+      shopService.remove(id);
       setShops(shops.filter(s => s.id !== id));
     } catch (err) {
       console.error('Error deleting shop:', err);

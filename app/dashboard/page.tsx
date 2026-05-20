@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Package, TrendingUp, AlertCircle, Truck, RefreshCw, RotateCcw } from 'lucide-react';
 import Link from 'next/link';
 import { useShop } from '@/context/ShopContext';
+import { orderService } from '@/src/services/orderService';
 
 interface Stats {
   totalToday: number;
@@ -37,18 +38,17 @@ export default function DashboardPage() {
     }
     setLoading(true);
     try {
-      const ts = Date.now();
-      const q = `?shop_id=${selectedShopId}&t=${ts}`;
-
-      const [sRes, oRes] = await Promise.all([
-        fetch(`/api/dashboard${q}`),
-        fetch(`/api/orders${q}&page=1`),
-      ]);
-      const s = await sRes.json();
-      if (!s.error) setStats(s);
-      const o = await oRes.json();
-      setUrgentOrders((o.data || []).filter((x: { need_action: boolean }) => x.need_action).slice(0, 5));
-    } catch { /* ignore */ }
+      const s = orderService.dashboardStats(selectedShopId);
+      setStats(s as Stats);
+      const q = orderService.query({ shopId: selectedShopId, status: undefined, from: undefined, to: undefined, search: undefined, page: 1, limit: 200 });
+      setUrgentOrders((q.data || []).filter((x: { needAction?: boolean }) => x.needAction).slice(0, 5).map((x: any) => ({
+        tracking_code: x.trackingCode,
+        shipping_status: x.status,
+        delivery_failed_reason: '',
+      })));
+    } catch (e) {
+      console.error('Dashboard local load error:', e);
+    }
     finally { setLoading(false); }
   };
 

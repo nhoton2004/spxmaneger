@@ -5,6 +5,8 @@ import Sidebar from '@/components/Sidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Download, Loader2, RefreshCw, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
 import Link from 'next/link';
+import { orderService } from '@/src/services/orderService';
+import { shopService } from '@/src/services/shopService';
 
 interface DebtOrder {
   id: string;
@@ -32,13 +34,19 @@ export default function DebtsPage() {
   const load = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const params = new URLSearchParams({ limit: '200' });
-      if (shopFilter) params.append('shop_id', shopFilter);
-      const res = await fetch(`/api/orders?${params}`);
-      const data = await res.json();
-      if (data.error) { setError(data.error); return; }
-      let rows: DebtOrder[] = data.data || [];
-      // Filter: only orders with COD
+       const q = orderService.query({ shopId: shopFilter || undefined, status: undefined, from: undefined, to: undefined, search: undefined, limit: 1000, page: 1 });
+      let rows: DebtOrder[] = (q.data || []).map((r: any) => ({
+        id: r.id,
+        tracking_code: r.trackingCode,
+        customer_name: r.customerName,
+        customer_phone: null,
+        shop_id: r.shopId,
+        order_date: r.createdAt,
+        cod_amount: Number(r.codAmount || 0),
+        actual_shipping_fee: 0,
+        shipping_status: r.status,
+        payment_status: 'Chưa thu',
+      }));
       rows = rows.filter(o => (o.cod_amount || 0) > 0);
       if (paymentFilter) rows = rows.filter(o => o.payment_status === paymentFilter);
       setOrders(rows);
@@ -48,14 +56,11 @@ export default function DebtsPage() {
   }, [shopFilter, paymentFilter]);
 
   useEffect(() => {
-    fetch('/api/shops').then(r => r.json()).then(data => {
-      if (Array.isArray(data)) {
-        setShops(data);
-        const m: Record<string, string> = {};
-        data.forEach((s: Shop) => { m[s.id] = s.name; });
-        setShopMap(m);
-      }
-    });
+    const data = shopService.list();
+    setShops(data);
+    const m: Record<string, string> = {};
+    data.forEach((s: Shop) => { m[s.id] = s.name; });
+    setShopMap(m);
   }, []);
 
   useEffect(() => { load(); }, [load]);

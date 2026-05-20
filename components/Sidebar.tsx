@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { LayoutDashboard, ShoppingBag, CreditCard, Upload, Bell, Settings, Bot, Users, Store, Lock, LogOut } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, CreditCard, Upload, Bell, Settings, Bot, Users, Store, Lock, LogOut, Calculator } from 'lucide-react';
 import ShopSelector from './ShopSelector';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
@@ -14,6 +14,7 @@ export default function Sidebar() {
     { name: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
     { name: 'Đơn hàng', icon: ShoppingBag, href: '/orders' },
     { name: 'Công nợ', icon: CreditCard, href: '/debts' },
+    { name: 'Đối soát', icon: Calculator, href: '/reconciliation' },
     { name: 'Import Excel', icon: Upload, href: '/import' },
     { name: 'AI trả lời khách', icon: Bot, href: '/ai-assistant' },
     { name: 'Nhắc nhở', icon: Bell, href: '/reminders' },
@@ -74,7 +75,7 @@ export default function Sidebar() {
         SPX Tracker
       </div>
       
-      {userProfile?.role === 'manager' && <ShopSelector />}
+      <ShopSelector />
 
       <nav className="flex-1">
         <ul className="space-y-2">

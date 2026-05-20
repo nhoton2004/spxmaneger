@@ -30,9 +30,20 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<any>(null);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const DUMMY_USER = { id: 'dummy-uid', email: 'test@example.com' };
+  const DUMMY_PROFILE = {
+    uid: 'dummy-uid',
+    email: 'test@example.com',
+    displayName: 'Test Admin',
+    role: 'admin' as UserRole,
+    assignedShops: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  const [user, setUser] = useState<any>(DUMMY_USER);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(DUMMY_PROFILE);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const supabase = getSupabase();
@@ -97,6 +108,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    // Auth bypass for testing
+    return () => {};
+    /*
     const initAuth = async () => {
       try {
         const { data: { session }, error: err } = await supabase.auth.getSession();
@@ -148,6 +162,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
 
     return () => subscription?.unsubscribe();
+    */
   }, []);
 
   const signIn = async (email: string, password: string) => {
