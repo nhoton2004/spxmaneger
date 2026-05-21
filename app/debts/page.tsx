@@ -34,7 +34,8 @@ export default function DebtsPage() {
   const load = useCallback(async () => {
     setLoading(true); setError('');
     try {
-       const q = orderService.query({ shopId: shopFilter || undefined, status: undefined, from: undefined, to: undefined, search: undefined, limit: 1000, page: 1 });
+       // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       const q = (orderService as any).query({ shopId: shopFilter || undefined, limit: 1000, page: 1 });
       let rows: DebtOrder[] = (q.data || []).map((r: any) => ({
         id: r.id,
         tracking_code: r.trackingCode,

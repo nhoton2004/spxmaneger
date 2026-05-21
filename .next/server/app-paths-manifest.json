@@ -1,5 +1,6 @@
 {
-  "/reminders/page": "app/reminders/page.js",
+  "/orders/page": "app/orders/page.js",
   "/import/page": "app/import/page.js",
+  "/debts/page": "app/debts/page.js",
   "/dashboard/page": "app/dashboard/page.js"
 }
